@@ -356,64 +356,139 @@ class TemplateManager:
         # 섹션별 데이터 매핑
         section_num = section_id.split('.')[0] if '.' in section_id else section_id
         data_section = ""
+        special_rules = ""
 
         if section_num in ["1"]:
+            # 사업 개요: 실제 데이터가 없는 항목은 placeholder
             data_section = f"""[사업 정보]
-프로젝트명: {context_data.get('project_name', '미정')}
+프로젝트명: {context_data.get('project_name', '[사업자가 직접 작성]')}
+
+⚠️ 중요 규칙:
+- 제공된 데이터에 없는 사업 정보(사업자명, 사업위치, 사업목적, 사업규모 등)는 절대 임의로 작성하지 마세요.
+- 실제 데이터가 없는 항목은 반드시 "[사업자가 직접 작성]" 또는 "[OO 정보 입력 필요]"로 placeholder를 남기세요.
+- 예: 사업위치 → "[사업위치 입력 필요]", 사업규모 → "[사업규모 입력 필요]"
 """
 
         elif section_num in ["2"]:
-            measurement = context_data.get('measurement_data', '현황측정자료 없음')
-            data_section = f"""[현황측정자료]
-{measurement[:5000] if measurement else '현황측정자료 없음'}
+            measurement = context_data.get('measurement_data', '')
+            if measurement:
+                data_section = f"""[현황측정자료]
+{measurement[:5000]}
+
+⚠️ 중요 규칙:
+- 위 측정자료에 포함된 데이터만 사용하세요.
+- 측정자료에 없는 항목(기상현황 등)은 "[측정자료 확인 필요]"로 placeholder를 남기세요.
+"""
+            else:
+                data_section = """[현황측정자료]
+현황측정자료가 제공되지 않았습니다.
+
+⚠️ 중요 규칙:
+- 현황측정자료가 없으므로 임의의 수치를 생성하지 마세요.
+- 모든 수치 항목에 "[현황측정자료 입력 필요]"로 placeholder를 남기세요.
 """
 
         elif section_num in ["3"]:
             aermod = context_data.get('aermod_data', '')
             facility = context_data.get('facility_data', '')
-            data_section = f"""[AERMOD 입력 조건 (상단부)]
-{aermod[:5000] if aermod else 'AERMOD 데이터 없음'}
+            data_section = f"""[AERMOD 입력 조건]
+{aermod[:5000] if aermod else '[AERMOD 입력조건 확인 필요]'}
 
 [정온시설 데이터]
-{facility[:5000] if facility else '정온시설 정보 없음'}
+{facility[:5000] if facility else '[정온시설 정보 입력 필요]'}
+
+⚠️ 중요 규칙:
+- 제공된 AERMOD 입력조건과 정온시설 데이터만 사용하세요.
+- 수용점 위치도는 별도의 DXF 파일로 생성되므로 "[수용점 배치도 - 별도 첨부]"로 표기하세요.
+- 데이터에 없는 배출원 정보, 기상관측소 정보 등은 placeholder로 남기세요.
 """
 
-        elif section_num in ["4", "5"]:
+        elif section_num in ["4"]:
             aermod = context_data.get('aermod_data', '')
             facility = context_data.get('facility_data', '')
             measurement = context_data.get('measurement_data', '')
             data_section = f"""[AERMOD 모델링 결과]
-{aermod[:15000] if aermod else 'AERMOD 데이터 없음'}
+{aermod[:15000] if aermod else '[AERMOD 결과 데이터 없음]'}
 
 [정온시설 데이터]
-{facility[:8000] if facility else '정온시설 정보 없음'}
+{facility[:8000] if facility else '[정온시설 정보 없음]'}
 
 [현황측정자료]
-{measurement[:3000] if measurement else '현황측정자료 없음'}
+{measurement[:3000] if measurement else '[현황측정자료 없음]'}
+"""
+            special_rules = """
+⚠️ 매우 중요한 규칙 - 반드시 준수할 것:
+
+1. **최대착지농도 ≠ 정온시설별 예측농도**: 이 두 개념은 완전히 다릅니다.
+   - "최대착지농도"는 AERMOD 결과에서 격자(Grid) 수용점 전체에서 가장 높은 농도입니다.
+   - "정온시설별 예측농도"는 각 정온시설 위치(이산 수용점)에서의 예측농도입니다.
+   - 최대착지농도를 정온시설에 적용하면 안 됩니다.
+
+2. **AERMOD 결과에서 구분하여 서술하세요**:
+   - 4.1절: 오염물질별 최대착지농도 (격자 수용점 기준) → 환경기준 대비 평가
+   - 4.2절: 정온시설별 예측농도 (이산 수용점 기준) → 시설별 환경기준 대비 평가
+   - 4.3절: 현황농도 + 정온시설별 예측농도 합산 → 누적 영향 평가
+
+3. **데이터에 없는 수치는 절대 임의 생성하지 마세요.**
+   - AERMOD 결과에서 읽을 수 없는 수치는 "[AERMOD 결과 확인 필요]"로 표기
+   - 등농도 분포도는 별도 생성되므로 "[등농도 분포도 - 별도 첨부]"로 표기
+"""
+
+        elif section_num in ["5"]:
+            aermod = context_data.get('aermod_data', '')
+            measurement = context_data.get('measurement_data', '')
+            data_section = f"""[AERMOD 모델링 결과 요약]
+{aermod[:8000] if aermod else '[AERMOD 결과 데이터 없음]'}
+
+[현황측정자료]
+{measurement[:3000] if measurement else '[현황측정자료 없음]'}
+
+⚠️ 중요 규칙:
+- 환경기준 적합성은 AERMOD 결과에 나타난 수치만 사용하세요.
+- 데이터에 없는 수치는 "[확인 필요]"로 placeholder를 남기세요.
+- 최대착지농도와 정온시설별 예측농도를 혼동하지 마세요.
 """
 
         elif section_num in ["6"]:
-            data_section = ""  # 표준 문구만 사용
+            data_section = """⚠️ 중요 규칙:
+- 저감방안은 표준 문구를 활용하되, 구체적인 수치(3m, 3회/일 등)를 포함하세요.
+- 사업 유형에 특화된 내용이 필요하나 사업 정보가 부족하면 "[사업유형에 맞는 저감방안 보완 필요]"로 표기하세요.
+"""
 
         elif section_num in ["7"]:
             data_section = f"""[이전 섹션 요약]
-{previous_sections_summary[:5000] if previous_sections_summary else '이전 섹션 정보 없음'}
+{previous_sections_summary[:5000] if previous_sections_summary else '[이전 섹션 정보 없음]'}
+
+⚠️ 중요 규칙:
+- 결론은 앞서 작성된 내용의 요약이어야 합니다.
+- 새로운 수치나 분석을 추가하지 마세요.
+- 이전 섹션에서 placeholder로 남긴 항목은 결론에서도 동일하게 placeholder로 유지하세요.
 """
 
         elif section_num in ["8"]:
-            data_section = ""  # 참고문헌 형식만
+            data_section = """⚠️ 중요 규칙:
+- 실제 인용한 문헌만 기재하세요.
+- 임의의 참고문헌을 만들어내지 마세요.
+- 본문에서 인용하지 않은 문헌은 포함하지 마세요.
+- 형식은 APA 스타일을 따르세요.
+"""
 
-        # 샘플 보고서 참조 (섹션 1~5에만)
+        # 샘플 보고서 참조 (섹션 2~5에만 - 섹션1은 임의 데이터 방지를 위해 제외)
         sample_ref = ""
-        if section_num in ["1", "2", "3", "4", "5"]:
+        if section_num in ["2", "3", "4", "5"]:
             sample_text = context_data.get('sample_text', '')
             if sample_text:
-                sample_ref = f"\n[참조: 샘플 보고서 양식]\n{sample_text[:5000]}\n"
+                sample_ref = f"\n[참조: 샘플 보고서 양식 (구조와 문체만 참조하고, 수치는 반드시 실제 데이터 사용)]\n{sample_text[:5000]}\n"
 
         prompt = f"""당신은 환경영향평가 대기질 분야 전문가입니다.
 아래 지침에 따라 환경영향평가서의 "{toc_text.split(chr(10))[0] if toc_text else section_id}" 섹션을 작성하세요.
 
 {writing_rules}
+
+[핵심 원칙]
+- 제공된 실제 데이터만 사용하세요. 임의의 내용이나 수치를 절대 생성하지 마세요.
+- 데이터가 없는 항목은 "[OO 입력 필요]" 형태의 placeholder로 남기세요.
+- 그림, 위치도 등 별도 첨부물은 "[OO - 별도 첨부]"로 표기하세요.
 
 [섹션 구조]
 {toc_text}
@@ -423,6 +498,7 @@ class TemplateManager:
 {f'[표준 문구 (적극 활용하세요)]' + chr(10) + standard_phrases if standard_phrases else ''}
 
 {data_section}
+{special_rules}
 {sample_ref}
 
 [출력 형식]
