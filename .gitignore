@@ -1,0 +1,15 @@
+# API keys / secrets
+.env
+*.secret
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Output files
+output/
+
+# IDE
+.vscode/
+.idea/

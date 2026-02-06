@@ -1,0 +1,6 @@
+google-genai
+anthropic
+pandas
+openpyxl
+PyPDF2
+python-docx

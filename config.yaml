@@ -1,0 +1,122 @@
+# 환경영향평가 대기질 보고서 자동화 시스템 - 프로젝트 설정 파일
+# 이 파일을 수정하여 다른 사업에 적용할 수 있습니다.
+
+# 프로젝트 기본 정보
+project:
+  name: "기본 프로젝트"
+  description: "환경영향평가 대기질 모델링"
+  date: "2025-01-21"
+
+# 경로 설정 (상대 경로 또는 절대 경로)
+paths:
+  base_dir: "G:\\eia"
+  input_dir: "input"
+  output_dir: "output"
+  sample_dir: "sample"
+  data_dir: "data"
+  engine_dir: "engine"
+
+# AERMOD 설정
+aermod:
+  exe_name: "aermod.exe"
+  input_file: "project.inp"
+  output_file: "project.out"
+  timeout: 300  # 초 단위 (5분)
+
+# 데이터 파일 설정
+data_files:
+  base_map: "base.dxf"  # DXF 베이스맵 파일명
+  facilities: "정온시설.xlsx"  # 정온시설 위치 파일
+  measurements: "현황측정자료.xlsx"  # 현황 측정 자료 파일
+
+  # 정온시설 엑셀 파일 구조
+  facilities_structure:
+    header_rows: 2  # 헤더 행 수
+    name_column: 3  # 시설명 컬럼 인덱스
+    x_column: 7     # X 좌표 컬럼 인덱스
+    y_column: 8     # Y 좌표 컬럼 인덱스
+
+# 오염물질 설정
+pollutants:
+  - name: "PM2.5"
+    display_name: "PM₂.₅"
+    unit: "μg/m³"
+    standard: 25.0  # 환경기준 (24시간 평균)
+
+  - name: "PM10"
+    display_name: "PM₁₀"
+    unit: "μg/m³"
+    standard: 50.0
+
+  - name: "NO2"
+    display_name: "NO₂"
+    unit: "μg/m³"
+    standard: 60.0
+
+  - name: "SO2"
+    display_name: "SO₂"
+    unit: "μg/m³"
+    standard: 50.0
+
+# 등농도곡선 기본 설정
+isopleth:
+  default_level_count: 10
+  default_level_min: null  # null이면 자동 설정
+  default_level_max: null  # null이면 자동 설정
+  default_level_interval: null  # null이면 level_count 사용
+
+  grid_resolution: 200  # 보간 격자 해상도
+  interpolation_method: "linear"  # linear, cubic, nearest
+
+  # 시각화 설정
+  visualization:
+    figure_width: 14
+    figure_height: 12
+    dpi: 300
+    contour_color: "blue"
+    contour_linewidth: 1.2
+    facility_color: "red"
+    facility_size: 8
+    label_fontsize: 6
+    base_map_color: "darkgray"
+    base_map_linewidth: 0.3
+    base_map_alpha: 0.5
+
+# AI 보고서 생성 설정
+ai:
+  api_key: "YOUR_API_KEY_HERE"
+  model: "gemini-2.5-flash"
+  max_output_tokens: 16000
+  temperature: 0.3
+  max_retries: 3
+  retry_delay: 35  # 초
+
+# 보고서 설정
+report:
+  formats:
+    - "txt"
+    - "docx"
+
+  # 샘플 보고서 로딩 제한
+  sample_max_pages: 50
+  sample_max_chars: 30000
+
+  # 참조 자료 로딩 제한
+  reference_max_pages: 10
+  reference_max_chars: 5000
+
+  # AERMOD 결과 로딩 제한
+  aermod_result_max_chars: 20000
+
+  # DOCX 설정
+  docx:
+    title: "환경영향평가서 - 대기질 부문"
+    font_name: "맑은 고딕"
+    font_size: 10
+    line_spacing: 1.5
+    image_width: 6.0  # 인치
+
+# 한글 폰트 설정 (matplotlib)
+font:
+  family: "Malgun Gothic"
+  unicode_minus: false
