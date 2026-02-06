@@ -13,3 +13,9 @@ output/
 # IDE
 .vscode/
 .idea/
+
+# Claude Code
+.claude/
+
+# Temp Excel files
+~$*
