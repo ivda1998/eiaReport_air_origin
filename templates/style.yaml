@@ -1,0 +1,246 @@
+# 보고서 스타일 설정
+# 환경영향평가서 문서 스타일 정의
+
+document:
+  # 페이지 설정
+  page:
+    size: "A4"
+    orientation: "portrait"
+    margins:
+      top: 25mm
+      bottom: 25mm
+      left: 30mm
+      right: 30mm
+
+  # 폰트 설정
+  fonts:
+    primary: "맑은 고딕"
+    secondary: "나눔고딕"
+    code: "Consolas"
+    sizes:
+      title: 18pt
+      heading1: 16pt
+      heading2: 14pt
+      heading3: 12pt
+      body: 10pt
+      caption: 9pt
+      footnote: 8pt
+
+  # 색상 팔레트
+  colors:
+    primary: "#2E5090"      # 진한 파랑
+    secondary: "#4A7BA7"    # 밝은 파랑
+    accent: "#C55A11"       # 주황
+    success: "#2E7D32"      # 초록
+    warning: "#F57C00"      # 주황
+    danger: "#C62828"       # 빨강
+    text: "#212121"         # 거의 검정
+    text_light: "#757575"   # 회색
+    background: "#FAFAFA"   # 밝은 회색
+
+# 제목 스타일
+headings:
+  h1:
+    font_size: 16pt
+    font_weight: "bold"
+    color: "#2E5090"
+    spacing_before: 12pt
+    spacing_after: 6pt
+    alignment: "left"
+
+  h2:
+    font_size: 14pt
+    font_weight: "bold"
+    color: "#4A7BA7"
+    spacing_before: 10pt
+    spacing_after: 5pt
+    alignment: "left"
+
+  h3:
+    font_size: 12pt
+    font_weight: "bold"
+    color: "#212121"
+    spacing_before: 8pt
+    spacing_after: 4pt
+    alignment: "left"
+
+# 본문 스타일
+body:
+  font_size: 10pt
+  line_spacing: 1.5
+  alignment: "justify"
+  first_line_indent: 0pt
+  spacing_after: 6pt
+
+# 표 스타일
+tables:
+  default:
+    style: "Light Grid Accent 1"
+    header:
+      background_color: "#2E5090"
+      text_color: "#FFFFFF"
+      font_weight: "bold"
+    border:
+      color: "#CCCCCC"
+      width: 0.5pt
+    cell_padding: 3pt
+
+  data:
+    style: "Medium Grid 1 Accent 1"
+    alternate_rows: true
+    alternate_color: "#F5F5F5"
+
+# 이미지 스타일
+images:
+  default:
+    alignment: "center"
+    max_width: 6.0in
+    border: false
+    spacing_before: 12pt
+    spacing_after: 12pt
+
+  inline:
+    max_width: 3.0in
+    alignment: "right"
+    wrap: true
+
+  caption:
+    font_size: 9pt
+    font_style: "italic"
+    color: "#757575"
+    alignment: "center"
+    prefix: "[그림] "
+
+# 목록 스타일
+lists:
+  bullet:
+    symbol: "•"
+    indent: 18pt
+    spacing: 3pt
+
+  numbered:
+    format: "1."
+    indent: 18pt
+    spacing: 3pt
+
+  nested:
+    level1: "1."
+    level2: "가."
+    level3: "(1)"
+
+# 인용 스타일
+quotes:
+  block:
+    font_style: "italic"
+    indent_left: 36pt
+    indent_right: 36pt
+    spacing_before: 12pt
+    spacing_after: 12pt
+    border_left:
+      width: 2pt
+      color: "#4A7BA7"
+
+  inline:
+    font_style: "italic"
+    quotes: true
+
+# 각주 및 참고문헌
+footnotes:
+  font_size: 8pt
+  line_spacing: 1.0
+  separator: true
+
+references:
+  font_size: 9pt
+  indent_hanging: 18pt
+  spacing: 3pt
+
+# 헤더/푸터
+header:
+  enabled: true
+  height: 15mm
+  content:
+    left: "{project_name}"
+    center: ""
+    right: "환경영향평가서"
+  font_size: 9pt
+  border_bottom: true
+
+footer:
+  enabled: true
+  height: 15mm
+  content:
+    left: "{date}"
+    center: ""
+    right: "페이지 {page}/{total_pages}"
+  font_size: 9pt
+  border_top: true
+
+# 표지 스타일
+cover:
+  title:
+    font_size: 24pt
+    font_weight: "bold"
+    color: "#2E5090"
+    alignment: "center"
+    spacing_after: 24pt
+
+  subtitle:
+    font_size: 18pt
+    color: "#4A7BA7"
+    alignment: "center"
+    spacing_after: 12pt
+
+  info:
+    font_size: 12pt
+    alignment: "center"
+    spacing: 6pt
+
+# 특수 요소
+special:
+  # 주의/경고 박스
+  alert:
+    background: "#FFF3E0"
+    border_color: "#F57C00"
+    border_width: 2pt
+    padding: 12pt
+    icon: "⚠️"
+
+  # 정보 박스
+  info:
+    background: "#E3F2FD"
+    border_color: "#2196F3"
+    border_width: 2pt
+    padding: 12pt
+    icon: "ℹ️"
+
+  # 성공 박스
+  success:
+    background: "#E8F5E9"
+    border_color: "#4CAF50"
+    border_width: 2pt
+    padding: 12pt
+    icon: "✅"
+
+# 차트 설정 (matplotlib)
+charts:
+  figure_size: [10, 6]
+  dpi: 300
+  style: "seaborn-v0_8-whitegrid"
+  colors:
+    - "#2E5090"
+    - "#4A7BA7"
+    - "#C55A11"
+    - "#2E7D32"
+    - "#F57C00"
+  font:
+    family: "Malgun Gothic"
+    size: 10
+  grid:
+    enabled: true
+    alpha: 0.3
+    color: "#CCCCCC"
+  legend:
+    location: "best"
+    frameon: true
+    shadow: false

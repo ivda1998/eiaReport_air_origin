@@ -15,8 +15,10 @@ except ImportError:
 
 try:
     from docx import Document
-    from docx.shared import Pt, RGBColor, Inches
+    from docx.shared import Pt, RGBColor, Inches, Mm
     from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
 except ImportError:
     Document = None
 
@@ -79,6 +81,377 @@ class ProjectConfig:
         return None
 
 
+# ==========================================
+# 템플릿 관리 클래스
+# ==========================================
+class TemplateManager:
+    """YAML 템플릿 로딩 및 프롬프트 구성 관리"""
+
+    def __init__(self, templates_dir):
+        self.templates_dir = templates_dir
+        self.toc = None
+        self.detailed = None
+        self.rules = None
+        self.style_guide = None
+        self.style = None
+        self.fonts = None
+        self.report_structure = None
+        self.load_all()
+
+    def load_all(self):
+        """모든 YAML 템플릿 로딩"""
+        if not os.path.exists(self.templates_dir):
+            print(f"⚠️ 템플릿 폴더를 찾을 수 없습니다: {self.templates_dir}")
+            return
+
+        file_map = {
+            'toc': 'toc_structure.yaml',
+            'detailed': 'report_template_detailed.yaml',
+            'rules': 'section_rules.yaml',
+            'style_guide': 'style_guide.yaml',
+            'style': 'style.yaml',
+            'fonts': 'fonts.yaml',
+            'report_structure': 'report_structure.yaml',
+        }
+
+        loaded_count = 0
+        for attr, filename in file_map.items():
+            data = self._load_yaml(filename)
+            setattr(self, attr, data)
+            if data:
+                loaded_count += 1
+
+        print(f"✓ 템플릿 로딩 완료: {loaded_count}/{len(file_map)}개")
+
+    def _load_yaml(self, filename):
+        """단일 YAML 파일 로딩"""
+        filepath = os.path.join(self.templates_dir, filename)
+        if not os.path.exists(filepath):
+            return None
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                return yaml.safe_load(f)
+        except Exception as e:
+            print(f"⚠️ 템플릿 로딩 실패 ({filename}): {e}")
+            return None
+
+    def get_section_list(self):
+        """toc_structure.yaml에서 섹션 목록 반환"""
+        if not self.toc or 'sections' not in self.toc:
+            return []
+        return self.toc['sections']
+
+    def get_writing_rules_summary(self):
+        """style_guide.yaml에서 작성 규칙 요약 반환"""
+        if not self.style_guide:
+            return ""
+
+        lines = []
+        # 작성 원칙
+        principles = self.style_guide.get('writing_principles', {})
+        rules = principles.get('rules', [])
+        if rules:
+            lines.append("[작성 규칙]")
+            for r in rules:
+                lines.append(f"- {r}")
+
+        # 금지 사항
+        prohibited = self.style_guide.get('prohibited', [])
+        if prohibited:
+            lines.append("\n[금지 사항]")
+            for p in prohibited:
+                lines.append(f"- {p}")
+
+        # 수치 표기
+        num_fmt = self.style_guide.get('number_formatting', {})
+        if num_fmt:
+            lines.append(f"\n[수치 표기] 소수점 {num_fmt.get('decimals', 2)}자리, 천단위 쉼표")
+
+        # 확실성 표현
+        certainty = self.style_guide.get('certainty_levels', {})
+        if certainty:
+            lines.append("\n[확실성 표현]")
+            for level, phrases in certainty.items():
+                lines.append(f"  {level}: {', '.join(phrases[:2])}")
+
+        return '\n'.join(lines)
+
+    def get_standard_phrases(self, section_id):
+        """해당 섹션에 맞는 표준 문구 반환"""
+        if not self.detailed:
+            return ""
+
+        phrases = self.detailed.get('standard_phrases', {})
+        section_templates = self.detailed.get('section_templates', {})
+
+        lines = []
+
+        # 섹션별 매핑
+        section_num = section_id.split('.')[0] if '.' in section_id else section_id
+
+        if section_num == "1":
+            # 사업 개요 - opening 문구
+            opening = phrases.get('opening', [])
+            if opening:
+                lines.append("[표준 서두 문구]")
+                for p in opening:
+                    lines.append(f"- {p}")
+
+        elif section_num == "2":
+            # 대기질 현황 - methodology.survey
+            survey = phrases.get('methodology', {}).get('survey', [])
+            if survey:
+                lines.append("[조사 방법론 표준 문구]")
+                for p in survey:
+                    lines.append(f"- {p}")
+            # 섹션 템플릿에서 추가 문구
+            for key in ["2.0", "2.1", "2.2", "2.3", "2.4", "2.5"]:
+                tmpl = section_templates.get(key, {})
+                sp = tmpl.get('standard_phrases', [])
+                if sp:
+                    lines.append(f"\n[{key} 표준 문구]")
+                    for p in sp:
+                        lines.append(f"- {p}")
+
+        elif section_num == "3":
+            # 영향 예측 방법 - methodology.modeling
+            modeling = phrases.get('methodology', {}).get('modeling', [])
+            if modeling:
+                lines.append("[모델링 방법론 표준 문구]")
+                for p in modeling:
+                    lines.append(f"- {p}")
+            # 섹션별 표준 문구
+            for key in ["3.0", "3.1", "3.2", "3.3", "3.4", "3.5", "3.6"]:
+                tmpl = section_templates.get(key, {})
+                sp = tmpl.get('standard_phrases', [])
+                if sp:
+                    lines.append(f"\n[{key} 표준 문구]")
+                    for p in sp:
+                        lines.append(f"- {p}")
+                # subsections의 표준 문구도
+                for sub_key, sub_val in tmpl.get('subsections', {}).items():
+                    if isinstance(sub_val, dict):
+                        sub_sp = sub_val.get('standard_phrases', [])
+                        if sub_sp:
+                            lines.append(f"\n[{sub_key} 표준 문구]")
+                            for p in sub_sp:
+                                lines.append(f"- {p}")
+
+        elif section_num == "4":
+            # 영향 예측 결과 - results
+            conc = phrases.get('results', {}).get('concentration', [])
+            comp = phrases.get('results', {}).get('compliance', [])
+            if conc:
+                lines.append("[예측 결과 표준 문구]")
+                for p in conc:
+                    lines.append(f"- {p}")
+            if comp:
+                lines.append("\n[적합성 평가 표준 문구]")
+                for p in comp:
+                    lines.append(f"- {p}")
+
+        elif section_num == "5":
+            # 환경기준 적합성 - validation
+            val = phrases.get('validation', [])
+            if val:
+                lines.append("[타당성 검증 표준 문구]")
+                for p in val:
+                    lines.append(f"- {p}")
+
+        elif section_num == "6":
+            # 저감방안 - mitigation
+            const = phrases.get('mitigation', {}).get('construction', [])
+            oper = phrases.get('mitigation', {}).get('operation', [])
+            if const:
+                lines.append("[공사시 저감방안]")
+                for p in const:
+                    lines.append(f"- {p}")
+            if oper:
+                lines.append("\n[운영시 저감방안]")
+                for p in oper:
+                    lines.append(f"- {p}")
+
+        elif section_num == "7":
+            # 결론
+            concl = phrases.get('conclusion', [])
+            if concl:
+                lines.append("[결론 표준 문구]")
+                for p in concl:
+                    lines.append(f"- {p}")
+
+        return '\n'.join(lines)
+
+    def get_section_rules(self, section_id):
+        """section_rules.yaml에서 해당 섹션 구조 요건 반환"""
+        if not self.rules:
+            return ""
+
+        sections = self.rules.get('sections', {})
+        section_num = section_id.split('.')[0] if '.' in section_id else section_id
+        section_data = sections.get(section_num, {})
+
+        if not section_data:
+            return ""
+
+        lines = []
+        lines.append(f"[섹션 구조 요건: {section_data.get('title', '')}]")
+        lines.append(f"목적: {section_data.get('purpose', '')}")
+
+        subsections = section_data.get('subsections', {})
+        if isinstance(subsections, dict):
+            for sub_id, sub_data in subsections.items():
+                if isinstance(sub_data, dict):
+                    lines.append(f"\n  {sub_id} {sub_data.get('title', '')}")
+                    length = sub_data.get('length', '')
+                    if length:
+                        lines.append(f"    분량: {length}")
+
+                    req = sub_data.get('required_elements', [])
+                    if req:
+                        lines.append(f"    필수 요소:")
+                        for r in req:
+                            if isinstance(r, str):
+                                lines.append(f"      - {r}")
+                            elif isinstance(r, dict):
+                                lines.append(f"      - [{r.get('type', '')}] {r.get('name', r.get('title', ''))}")
+
+                    guide = sub_data.get('writing_guide', [])
+                    if guide:
+                        lines.append(f"    작성 가이드:")
+                        for g in guide:
+                            lines.append(f"      - {g}")
+
+        # 작성 주의사항
+        notes = self.rules.get('writing_notes', {})
+        critical = notes.get('critical_sections', [])
+        for c in critical:
+            if c.get('section', '').startswith(section_num):
+                lines.append(f"\n⚠️ {c['section']}: {c['note']}")
+
+        return '\n'.join(lines)
+
+    def get_toc_structure_text(self, section_id):
+        """toc_structure.yaml에서 해당 섹션의 목차 구조 텍스트 반환"""
+        if not self.toc:
+            return ""
+
+        sections = self.toc.get('sections', [])
+        for sec in sections:
+            if sec.get('id') == section_id:
+                lines = [f"{sec['id']}. {sec.get('title', '')}"]
+                for sub in sec.get('subsections', []):
+                    lines.append(f"  {sub['id']} {sub.get('title', '')}")
+                    for content_item in sub.get('content', []):
+                        lines.append(f"    - {content_item}")
+                return '\n'.join(lines)
+        return ""
+
+    def get_section_prompt(self, section_id, context_data, previous_sections_summary=""):
+        """섹션별 AI 프롬프트 조립"""
+        writing_rules = self.get_writing_rules_summary()
+        toc_text = self.get_toc_structure_text(section_id)
+        section_rules = self.get_section_rules(section_id)
+        standard_phrases = self.get_standard_phrases(section_id)
+
+        # 섹션별 데이터 매핑
+        section_num = section_id.split('.')[0] if '.' in section_id else section_id
+        data_section = ""
+
+        if section_num in ["1"]:
+            data_section = f"""[사업 정보]
+프로젝트명: {context_data.get('project_name', '미정')}
+"""
+
+        elif section_num in ["2"]:
+            measurement = context_data.get('measurement_data', '현황측정자료 없음')
+            data_section = f"""[현황측정자료]
+{measurement[:5000] if measurement else '현황측정자료 없음'}
+"""
+
+        elif section_num in ["3"]:
+            aermod = context_data.get('aermod_data', '')
+            facility = context_data.get('facility_data', '')
+            data_section = f"""[AERMOD 입력 조건 (상단부)]
+{aermod[:5000] if aermod else 'AERMOD 데이터 없음'}
+
+[정온시설 데이터]
+{facility[:5000] if facility else '정온시설 정보 없음'}
+"""
+
+        elif section_num in ["4", "5"]:
+            aermod = context_data.get('aermod_data', '')
+            facility = context_data.get('facility_data', '')
+            measurement = context_data.get('measurement_data', '')
+            data_section = f"""[AERMOD 모델링 결과]
+{aermod[:15000] if aermod else 'AERMOD 데이터 없음'}
+
+[정온시설 데이터]
+{facility[:8000] if facility else '정온시설 정보 없음'}
+
+[현황측정자료]
+{measurement[:3000] if measurement else '현황측정자료 없음'}
+"""
+
+        elif section_num in ["6"]:
+            data_section = ""  # 표준 문구만 사용
+
+        elif section_num in ["7"]:
+            data_section = f"""[이전 섹션 요약]
+{previous_sections_summary[:5000] if previous_sections_summary else '이전 섹션 정보 없음'}
+"""
+
+        elif section_num in ["8"]:
+            data_section = ""  # 참고문헌 형식만
+
+        # 샘플 보고서 참조 (섹션 1~5에만)
+        sample_ref = ""
+        if section_num in ["1", "2", "3", "4", "5"]:
+            sample_text = context_data.get('sample_text', '')
+            if sample_text:
+                sample_ref = f"\n[참조: 샘플 보고서 양식]\n{sample_text[:5000]}\n"
+
+        prompt = f"""당신은 환경영향평가 대기질 분야 전문가입니다.
+아래 지침에 따라 환경영향평가서의 "{toc_text.split(chr(10))[0] if toc_text else section_id}" 섹션을 작성하세요.
+
+{writing_rules}
+
+[섹션 구조]
+{toc_text}
+
+{section_rules}
+
+{f'[표준 문구 (적극 활용하세요)]' + chr(10) + standard_phrases if standard_phrases else ''}
+
+{data_section}
+{sample_ref}
+
+[출력 형식]
+- 마크다운 형식으로 작성 (# 제목, ## 소제목, | 표 |)
+- 표는 마크다운 표 형식 사용
+- 문체: ~함, ~임 서술형
+- 수치는 소수점 2자리, 단위 뒤 공백
+- 선행연구 인용 시 저자(연도) 형식 사용
+
+위 정보를 바탕으로 해당 섹션을 작성하세요.
+"""
+        return prompt
+
+    def get_docx_styles(self):
+        """style.yaml + fonts.yaml 병합하여 DOCX 스타일 반환"""
+        merged = {}
+        if self.style:
+            merged.update(self.style)
+        if self.fonts:
+            # fonts.yaml의 주요 항목 병합
+            merged['heading_styles'] = self.fonts.get('heading_styles', {})
+            merged['body_styles'] = self.fonts.get('body_styles', {})
+            merged['table_styles'] = self.fonts.get('table_styles', {})
+            merged['figure_styles'] = self.fonts.get('figure_styles', {})
+            merged['cover_fonts'] = self.fonts.get('cover', {})
+            merged['font_colors'] = self.fonts.get('colors', {})
+        return merged
+
+
 # 전역 설정 객체
 try:
     CONFIG = ProjectConfig()
@@ -87,6 +460,14 @@ except Exception as e:
     print(f"❌ 설정 초기화 실패: {e}")
     print("   config.yaml 파일을 확인하고 다시 시도하세요.")
     exit(1)
+
+# 템플릿 관리 객체
+try:
+    TEMPLATES_DIR = os.path.join(CONFIG.BASE_DIR, "templates")
+    TEMPLATES = TemplateManager(TEMPLATES_DIR)
+except Exception as e:
+    print(f"⚠️ 템플릿 로딩 실패 (기존 방식으로 동작): {e}")
+    TEMPLATES = None
 
 
 # ==========================================
@@ -680,16 +1061,45 @@ def run_aermod():
 # ==========================================
 # 4. 결과 분석 및 보고서 작성
 # ==========================================
-def analyze_output():
-    """AERMOD 결과를 분석하여 환경영향평가서 작성"""
+def _call_ai(prompt):
+    """단일 AI 호출 (재시도 로직 포함)"""
+    ai_config = CONFIG.config['ai']
+    max_retries = ai_config['max_retries']
+    retry_delay = ai_config['retry_delay']
 
-    if not os.path.exists(CONFIG.OUTPUT_FILE):
-        return "❌ AERMOD 출력 파일을 찾을 수 없습니다. 먼저 모델링을 실행하세요.", []
+    for attempt in range(max_retries):
+        try:
+            response = client.models.generate_content(
+                model=ai_config['model'],
+                contents=prompt,
+                config={
+                    "max_output_tokens": ai_config['max_output_tokens'],
+                    "temperature": ai_config['temperature']
+                }
+            )
 
-    print(f"\n📊 AERMOD 결과 분석 중...")
+            if response and hasattr(response, 'text') and response.text:
+                return response.text.strip()
+            else:
+                if attempt < max_retries - 1:
+                    print(f"   ⚠️ AI 응답 비어있음. 재시도 중... ({attempt+1}/{max_retries})")
+                    time.sleep(10)
+                    continue
+                else:
+                    raise Exception("AI 응답이 생성되지 않았습니다.")
 
-    isopleth_images = generate_all_isopleths()
+        except Exception as e:
+            error_msg = str(e)
+            if "429" in error_msg and attempt < max_retries - 1:
+                print(f"   ⏳ API 할당량 초과. {retry_delay}초 대기 중... ({attempt+1}/{max_retries})")
+                time.sleep(retry_delay)
+            else:
+                raise Exception(f"AI 호출 실패: {error_msg}")
+    return None
 
+
+def _prepare_context_data():
+    """보고서 생성에 필요한 모든 컨텍스트 데이터 수집"""
     report_config = CONFIG.config['report']
     max_chars = report_config['aermod_result_max_chars']
 
@@ -706,6 +1116,79 @@ def analyze_output():
         f"[샘플 보고서: {item['filename']}]\n{item['content']}"
         for item in sample_reports
     ]) if sample_reports else "샘플 보고서 없음"
+
+    return {
+        'aermod_data': aermod_data,
+        'sample_text': sample_text,
+        'facility_data': facility_data if facility_data else '',
+        'measurement_data': measurement_data if measurement_data else '',
+        'reference_papers': reference_papers if reference_papers else '',
+        'project_name': CONFIG.config['project']['name'],
+    }
+
+
+def _analyze_with_templates(context_data, isopleth_images):
+    """템플릿 기반 섹션별 보고서 생성"""
+    sections = TEMPLATES.get_section_list()
+    if not sections:
+        print("⚠️ 템플릿 섹션 목록이 비어있습니다. 기존 방식으로 전환합니다.")
+        return _analyze_legacy(context_data, isopleth_images)
+
+    # 부록 제외 (본문 섹션만)
+    main_sections = [s for s in sections if s.get('id') not in ['부록']]
+    total = len(main_sections)
+
+    full_report_parts = []
+    previous_summary = ""
+
+    print(f"\n🤖 템플릿 기반 보고서 작성 시작 (총 {total}개 섹션)")
+
+    for idx, section in enumerate(main_sections):
+        section_id = section['id']
+        section_title = section.get('title', '')
+
+        print(f"\n  📝 [{idx+1}/{total}] 섹션 {section_id}: {section_title} 작성 중...")
+
+        prompt = TEMPLATES.get_section_prompt(
+            section_id, context_data, previous_summary
+        )
+
+        try:
+            section_text = _call_ai(prompt)
+            if section_text:
+                full_report_parts.append(section_text)
+                # 이전 섹션 요약 업데이트 (결론용)
+                if len(section_text) > 500:
+                    previous_summary += f"\n[{section_id}. {section_title}] {section_text[:300]}..."
+                else:
+                    previous_summary += f"\n[{section_id}. {section_title}] {section_text}"
+                print(f"  ✓ 섹션 {section_id} 완료 ({len(section_text):,}자)")
+            else:
+                print(f"  ⚠️ 섹션 {section_id} 생성 실패 (건너뜀)")
+        except Exception as e:
+            print(f"  ❌ 섹션 {section_id} 오류: {str(e)}")
+            # 에러 발생해도 나머지 섹션 계속 진행
+
+        # API 레이트 리밋 방지
+        if idx < total - 1:
+            time.sleep(3)
+
+    if not full_report_parts:
+        raise Exception("모든 섹션 생성에 실패했습니다.")
+
+    full_report = "\n\n---\n\n".join(full_report_parts)
+    print(f"\n✓ 전체 보고서 생성 완료 ({len(full_report):,}자, {len(full_report_parts)}개 섹션)")
+
+    return full_report, isopleth_images
+
+
+def _analyze_legacy(context_data, isopleth_images):
+    """기존 단일 프롬프트 방식 보고서 생성 (fallback)"""
+    sample_text = context_data['sample_text']
+    facility_data = context_data['facility_data']
+    measurement_data = context_data['measurement_data']
+    reference_papers = context_data['reference_papers']
+    aermod_data = context_data['aermod_data']
 
     prompt = f"""
 당신은 환경영향평가 대기질 분야 전문가입니다.
@@ -745,42 +1228,278 @@ def analyze_output():
 
     print("\n🤖 AI 보고서 작성 중... (최대 1-2분 소요)")
 
-    ai_config = CONFIG.config['ai']
-    max_retries = ai_config['max_retries']
-    retry_delay = ai_config['retry_delay']
+    result_text = _call_ai(prompt)
+    if result_text:
+        print(f"✓ AI 응답 생성 완료 ({len(result_text):,}자)")
+        return result_text, isopleth_images
+    else:
+        raise Exception("AI 보고서 생성 실패")
 
-    for attempt in range(max_retries):
+
+def analyze_output(use_templates=None):
+    """AERMOD 결과를 분석하여 환경영향평가서 작성
+
+    Args:
+        use_templates: True=템플릿 사용, False=기존방식, None=자동판단
+    """
+    if not os.path.exists(CONFIG.OUTPUT_FILE):
+        return "❌ AERMOD 출력 파일을 찾을 수 없습니다. 먼저 모델링을 실행하세요.", []
+
+    print(f"\n📊 AERMOD 결과 분석 중...")
+
+    isopleth_images = generate_all_isopleths()
+    context_data = _prepare_context_data()
+
+    # 템플릿 사용 여부 결정
+    if use_templates is None:
+        use_templates = TEMPLATES is not None
+
+    if use_templates and TEMPLATES is not None:
+        print("📋 템플릿 기반 섹션별 생성 모드")
+        return _analyze_with_templates(context_data, isopleth_images)
+    else:
+        print("📄 기존 단일 프롬프트 생성 모드")
+        return _analyze_legacy(context_data, isopleth_images)
+
+
+# ==========================================
+# DOCX 스타일링 헬퍼 함수
+# ==========================================
+def _parse_pt(value):
+    """'16pt' 같은 문자열에서 숫자 추출"""
+    if isinstance(value, (int, float)):
+        return int(value)
+    if isinstance(value, str):
+        return int(value.replace('pt', '').replace('mm', '').strip())
+    return 10
+
+def _parse_color(hex_color):
+    """'#2E5090' -> RGBColor"""
+    if not hex_color or not isinstance(hex_color, str):
+        return RGBColor(0x21, 0x21, 0x21)
+    hex_color = hex_color.lstrip('#')
+    return RGBColor(int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16))
+
+def _setup_page(doc, styles_config):
+    """페이지 설정 (여백)"""
+    page_config = styles_config.get('document', {}).get('page', {})
+    if not page_config:
+        page_config = styles_config.get('page', {})
+    margins = page_config.get('margins', {})
+
+    section = doc.sections[0]
+    if margins:
+        section.top_margin = Mm(int(str(margins.get('top', '25')).replace('mm', '')))
+        section.bottom_margin = Mm(int(str(margins.get('bottom', '25')).replace('mm', '')))
+        section.left_margin = Mm(int(str(margins.get('left', '30')).replace('mm', '')))
+        section.right_margin = Mm(int(str(margins.get('right', '30')).replace('mm', '')))
+
+def _setup_heading_styles(doc, styles_config):
+    """H1~H3 제목 스타일 설정"""
+    heading_config = styles_config.get('heading_styles', {})
+    if not heading_config:
+        heading_config = styles_config.get('headings', {})
+    if not heading_config:
+        return
+
+    for level, key in [(1, 'h1'), (2, 'h2'), (3, 'h3')]:
+        h_conf = heading_config.get(key, {})
+        if not h_conf:
+            continue
         try:
-            response = client.models.generate_content(
-                model=ai_config['model'],
-                contents=prompt,
-                config={
-                    "max_output_tokens": ai_config['max_output_tokens'],
-                    "temperature": ai_config['temperature']
-                }
-            )
+            style = doc.styles[f'Heading {level}']
+            font = style.font
+            font.name = h_conf.get('font_family', h_conf.get('font_name', '맑은 고딕'))
+            font.size = Pt(_parse_pt(h_conf.get('font_size', 16 - (level-1)*2)))
+            font.bold = h_conf.get('font_weight') == 'bold'
+            font.color.rgb = _parse_color(h_conf.get('color', '#212121'))
 
-            if response and hasattr(response, 'text') and response.text:
-                result_text = response.text.strip()
-                print(f"✓ AI 응답 생성 완료 ({len(result_text):,}자)")
-                return result_text, isopleth_images
-            else:
-                print("⚠️ AI 응답이 비어있습니다.")
-                if attempt < max_retries - 1:
-                    print(f"   재시도 중... ({attempt+1}/{max_retries})")
-                    time.sleep(10)
-                    continue
-                else:
-                    raise Exception("AI 응답이 생성되지 않았습니다.")
+            pf = style.paragraph_format
+            pf.space_before = Pt(_parse_pt(h_conf.get('spacing_before', 12)))
+            pf.space_after = Pt(_parse_pt(h_conf.get('spacing_after', 6)))
+        except Exception:
+            pass
 
-        except Exception as e:
-            error_msg = str(e)
-            if "429" in error_msg and attempt < max_retries - 1:
-                print(f"⏳ API 할당량 초과. {retry_delay}초 대기 중... ({attempt+1}/{max_retries})")
-                time.sleep(retry_delay)
-            else:
-                print(f"❌ AI 보고서 생성 실패: {error_msg}")
-                raise Exception(f"AI 보고서 생성 실패: {error_msg}")
+def _setup_body_style(doc, styles_config):
+    """본문 스타일 설정"""
+    body_config = styles_config.get('body_styles', {}).get('normal', {})
+    if not body_config:
+        body_config = styles_config.get('body', {})
+    if not body_config:
+        return
+
+    try:
+        style = doc.styles['Normal']
+        font = style.font
+        font.name = body_config.get('font_family', '맑은 고딕')
+        font.size = Pt(_parse_pt(body_config.get('font_size', 10)))
+        font.color.rgb = _parse_color(body_config.get('color', '#212121'))
+
+        pf = style.paragraph_format
+        spacing = body_config.get('line_spacing', 1.6)
+        if isinstance(spacing, (int, float)):
+            pf.line_spacing = spacing
+        pf.space_after = Pt(_parse_pt(body_config.get('spacing_after', 6)))
+    except Exception:
+        pass
+
+def _add_cover_page(doc, styles_config, project_config):
+    """표지 페이지 생성"""
+    cover = styles_config.get('cover', styles_config.get('cover_fonts', {}))
+    if not cover:
+        return
+
+    # 빈 줄 추가로 표지 상단 여백
+    for _ in range(6):
+        doc.add_paragraph()
+
+    # 제목
+    title_conf = cover.get('title', {})
+    title_text = project_config.get('name', '환경영향평가서')
+    title_para = doc.add_paragraph()
+    title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    title_run = title_para.add_run(title_text)
+    title_run.font.size = Pt(_parse_pt(title_conf.get('font_size', 24)))
+    title_run.font.bold = title_conf.get('font_weight') == 'bold'
+    title_run.font.color.rgb = _parse_color(title_conf.get('color', '#2E5090'))
+    title_run.font.name = title_conf.get('font_family', '맑은 고딕')
+
+    # 부제목
+    subtitle_conf = cover.get('subtitle', {})
+    subtitle_para = doc.add_paragraph()
+    subtitle_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    subtitle_run = subtitle_para.add_run("환경영향평가서 - 대기질 부문")
+    subtitle_run.font.size = Pt(_parse_pt(subtitle_conf.get('font_size', 18)))
+    subtitle_run.font.color.rgb = _parse_color(subtitle_conf.get('color', '#4A7BA7'))
+    subtitle_run.font.name = subtitle_conf.get('font_family', '맑은 고딕')
+
+    # 빈 줄
+    for _ in range(4):
+        doc.add_paragraph()
+
+    # 프로젝트 정보
+    info_conf = cover.get('info', {})
+    info_items = [
+        f"사업명: {project_config.get('name', '')}",
+        f"작성일: {project_config.get('date', time.strftime('%Y-%m-%d'))}",
+        f"작성 도구: AERMOD + AI 자동 작성 시스템",
+    ]
+    for item in info_items:
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r = p.add_run(item)
+        r.font.size = Pt(_parse_pt(info_conf.get('font_size', 12)))
+        r.font.name = info_conf.get('font_family', '맑은 고딕')
+        r.font.color.rgb = _parse_color(info_conf.get('color', '#212121'))
+
+    # 페이지 나누기
+    doc.add_page_break()
+
+def _add_header_footer(doc, styles_config, project_name):
+    """머리글/바닥글 설정"""
+    try:
+        header_conf = styles_config.get('header', {})
+        footer_conf = styles_config.get('footer', {})
+
+        section = doc.sections[0]
+
+        # 머리글
+        if header_conf.get('enabled', False):
+            header = section.header
+            header.is_linked_to_previous = False
+            p = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
+            p.text = ""
+            # 왼쪽: 프로젝트명
+            run_left = p.add_run(f"{project_name}")
+            run_left.font.size = Pt(_parse_pt(header_conf.get('font_size', 9)))
+            run_left.font.color.rgb = _parse_color(header_conf.get('color', '#757575'))
+            run_left.font.name = header_conf.get('font_family', '맑은 고딕')
+            # 구분자
+            run_sep = p.add_run("    |    ")
+            run_sep.font.size = Pt(9)
+            run_sep.font.color.rgb = _parse_color('#BDBDBD')
+            # 오른쪽: 문서명
+            run_right = p.add_run("환경영향평가서")
+            run_right.font.size = Pt(_parse_pt(header_conf.get('font_size', 9)))
+            run_right.font.color.rgb = _parse_color(header_conf.get('color', '#757575'))
+            run_right.font.name = header_conf.get('font_family', '맑은 고딕')
+
+        # 바닥글
+        if footer_conf.get('enabled', False):
+            footer = section.footer
+            footer.is_linked_to_previous = False
+            p = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
+            p.text = ""
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run = p.add_run(f"{project_name} | {time.strftime('%Y년 %m월 %d일')}")
+            run.font.size = Pt(_parse_pt(footer_conf.get('font_size', 9)))
+            run.font.color.rgb = _parse_color(footer_conf.get('color', '#757575'))
+            run.font.name = footer_conf.get('font_family', '맑은 고딕')
+    except Exception as e:
+        print(f"  ⚠️ 머리글/바닥글 설정 실패: {e}")
+
+def _style_table(table, styles_config):
+    """표에 스타일 적용 (헤더 색상, 테두리 등)"""
+    table_conf = styles_config.get('table_styles', {}).get('default', {})
+    if not table_conf:
+        table_conf = styles_config.get('tables', {}).get('default', {})
+    if not table_conf:
+        return
+
+    header_conf = table_conf.get('header', {})
+    bg_color = header_conf.get('background_color', '#2E5090').lstrip('#')
+    text_color = header_conf.get('text_color', '#FFFFFF')
+
+    # 첫 행(헤더)에 배경색 적용
+    if table.rows:
+        for cell in table.rows[0].cells:
+            try:
+                # 셀 배경색
+                tc_pr = cell._tc.get_or_add_tcPr()
+                shading = OxmlElement('w:shd')
+                shading.set(qn('w:fill'), bg_color)
+                shading.set(qn('w:val'), 'clear')
+                tc_pr.append(shading)
+
+                # 텍스트 색상 및 볼드
+                for paragraph in cell.paragraphs:
+                    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    for run in paragraph.runs:
+                        run.font.bold = True
+                        run.font.color.rgb = _parse_color(text_color)
+                        run.font.size = Pt(_parse_pt(table_conf.get('font_size', 9)))
+                        run.font.name = table_conf.get('font_family', '맑은 고딕')
+            except Exception:
+                pass
+
+    # 데이터 행 스타일
+    body_conf = table_conf.get('body', {})
+    alt_color = body_conf.get('alternate_color', '#F5F5F5').lstrip('#')
+    use_alt = body_conf.get('alternate_rows', False)
+
+    for row_idx, row in enumerate(table.rows[1:], 1):
+        for cell in row.cells:
+            try:
+                for paragraph in cell.paragraphs:
+                    for run in paragraph.runs:
+                        run.font.size = Pt(_parse_pt(table_conf.get('font_size', 9)))
+                        run.font.name = table_conf.get('font_family', '맑은 고딕')
+
+                # 교대 행 색상
+                if use_alt and row_idx % 2 == 0:
+                    tc_pr = cell._tc.get_or_add_tcPr()
+                    shading = OxmlElement('w:shd')
+                    shading.set(qn('w:fill'), alt_color)
+                    shading.set(qn('w:val'), 'clear')
+                    tc_pr.append(shading)
+            except Exception:
+                pass
+
+def _apply_docx_styles(doc, styles_config):
+    """DOCX 문서에 전체 스타일 적용"""
+    _setup_page(doc, styles_config)
+    _setup_heading_styles(doc, styles_config)
+    _setup_body_style(doc, styles_config)
 
 
 def save_report(content, format='txt', isopleth_images=None):
@@ -824,8 +1543,16 @@ def save_report(content, format='txt', isopleth_images=None):
             doc = Document()
 
             docx_config = CONFIG.config['report']['docx']
-            title = doc.add_heading(docx_config['title'], level=1)
-            title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+            # 템플릿 스타일 적용
+            if TEMPLATES is not None:
+                docx_styles = TEMPLATES.get_docx_styles()
+                _apply_docx_styles(doc, docx_styles)
+                _add_cover_page(doc, docx_styles, CONFIG.config['project'])
+                _add_header_footer(doc, docx_styles, CONFIG.config['project']['name'])
+            else:
+                title = doc.add_heading(docx_config['title'], level=1)
+                title.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
             lines = content.split('\n')
             i = 0
@@ -856,7 +1583,7 @@ def save_report(content, format='txt', isopleth_images=None):
 
                             if len(data_lines) > 0:
                                 table = doc.add_table(rows=len(data_lines), cols=num_cols)
-                                table.style = 'Light Grid Accent 1'
+                                table.style = 'Table Grid'
 
                                 for row_idx, data_line in enumerate(data_lines):
                                     cells = [cell.strip() for cell in data_line.split('|')[1:-1]]
@@ -864,10 +1591,10 @@ def save_report(content, format='txt', isopleth_images=None):
                                         if col_idx < num_cols:
                                             cell = table.rows[row_idx].cells[col_idx]
                                             cell.text = cell_text
-                                            if row_idx == 0:
-                                                for paragraph in cell.paragraphs:
-                                                    for run in paragraph.runs:
-                                                        run.bold = True
+
+                                # 템플릿 스타일 적용
+                                if TEMPLATES is not None:
+                                    _style_table(table, TEMPLATES.get_docx_styles())
                         except Exception as e:
                             p = doc.add_paragraph('\n'.join(table_lines))
                             p.paragraph_format.line_spacing = 1.0
@@ -1213,19 +1940,21 @@ python t2_v2.py
 # ==========================================
 if __name__ == "__main__":
     print("\n" + "="*70)
-    print("   환경영향평가 대기질 보고서 자동 작성 시스템 v2.0")
+    print("   환경영향평가 대기질 보고서 자동 작성 시스템 v2.1 (템플릿 지원)")
     print("="*70)
     print(f"   프로젝트: {CONFIG.config['project']['name']}")
     print("="*70)
 
     while True:
         print("\n[명령어]")
-        print("  1. 모델링   - AERMOD 시뮬레이션 실행")
-        print("  2. 분석     - 결과 분석 및 보고서 작성 (TXT)")
-        print("  3. 전체     - 모델링 + 분석 한번에 실행 (TXT)")
-        print("  4. DOCX     - 보고서를 DOCX 형식으로 작성")
-        print("  5. 등농도선 - 등농도곡선만 생성")
-        print("  6. 종료     - 프로그램 종료")
+        print("  1. 모델링    - AERMOD 시뮬레이션 실행")
+        print("  2. 분석      - 결과 분석 및 보고서 작성 (TXT, 기존방식)")
+        print("  3. 전체      - 모델링 + 분석 한번에 실행 (TXT)")
+        print("  4. DOCX      - 보고서를 DOCX 형식으로 작성 (기존방식)")
+        print("  5. 등농도선  - 등농도곡선만 생성")
+        print("  6. 종료      - 프로그램 종료")
+        print("  7. 템플릿    - 템플릿 기반 고품질 보고서 (DOCX)")
+        print("  8. 템플릿TXT - 템플릿 기반 보고서 (TXT)")
 
         command = input("\n명령을 입력하세요: ").strip()
 
@@ -1357,6 +2086,69 @@ if __name__ == "__main__":
                 print(f"\n❌ 입력 오류: 숫자를 입력해주세요.")
             except Exception as e:
                 print(f"\n❌ 등농도곡선 생성 오류: {str(e)}")
+                import traceback
+                traceback.print_exc()
+
+        elif command == "템플릿" or command == "7":
+            try:
+                if TEMPLATES is None:
+                    print("\n❌ 템플릿이 로딩되지 않았습니다. templates 폴더를 확인하세요.")
+                    continue
+                if os.path.exists(CONFIG.OUTPUT_FILE):
+                    result_data = analyze_output(use_templates=True)
+                    if result_data:
+                        report, isopleth_images = result_data
+                        print("\n" + "="*70)
+                        print("[템플릿 기반 환경영향평가서 - 대기질]")
+                        print("="*70)
+                        print(f"보고서 길이: {len(report):,}자")
+                        if len(report) > 500:
+                            print(report[:500] + "...")
+                        else:
+                            print(report)
+
+                        # TXT 저장
+                        save_report(report, format='txt', isopleth_images=isopleth_images)
+                        # DOCX 저장
+                        result = save_report(report, format='docx', isopleth_images=isopleth_images)
+                        if result:
+                            print(f"✓ 템플릿 기반 DOCX 파일 생성 완료")
+                    else:
+                        print("❌ 보고서 내용이 생성되지 않았습니다.")
+                else:
+                    print("\n❌ AERMOD 출력 파일이 없습니다. 먼저 '모델링' 또는 '전체'를 실행하세요.")
+            except Exception as e:
+                print(f"\n❌ 템플릿 보고서 생성 오류: {str(e)}")
+                import traceback
+                traceback.print_exc()
+
+        elif command == "템플릿TXT" or command == "8":
+            try:
+                if TEMPLATES is None:
+                    print("\n❌ 템플릿이 로딩되지 않았습니다. templates 폴더를 확인하세요.")
+                    continue
+                if os.path.exists(CONFIG.OUTPUT_FILE):
+                    result_data = analyze_output(use_templates=True)
+                    if result_data:
+                        report, isopleth_images = result_data
+                        print("\n" + "="*70)
+                        print("[템플릿 기반 환경영향평가서 - 대기질]")
+                        print("="*70)
+                        if len(report) > 1000:
+                            print(report[:1000])
+                            print(f"\n... (총 {len(report):,}자, 이하 생략) ...\n")
+                        else:
+                            print(report)
+
+                        result = save_report(report, format='txt', isopleth_images=isopleth_images)
+                        if result:
+                            print(f"✓ 템플릿 기반 TXT 보고서 작성 완료")
+                    else:
+                        print("❌ 보고서 내용이 생성되지 않았습니다.")
+                else:
+                    print("\n❌ AERMOD 출력 파일이 없습니다. 먼저 '모델링' 또는 '전체'를 실행하세요.")
+            except Exception as e:
+                print(f"\n❌ 템플릿 보고서 생성 오류: {str(e)}")
                 import traceback
                 traceback.print_exc()
 

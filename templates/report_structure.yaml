@@ -1,0 +1,229 @@
+# 환경영향평가서 보고서 구조
+# 문서의 전체 구성과 섹션 체계
+
+document:
+  title: "환경영향평가서 - 대기질 부문"
+  section_code: "9.2.2"
+  version: "2.0"
+  based_on: "환경영향평가법 시행령, 실제 평가서 샘플"
+
+# 목차 구조
+toc:
+  depth: 3  # 최대 섹션 깊이 (예: 1.2.3까지)
+  auto_numbering: true
+  page_numbers: true
+
+  sections:
+    - id: "1"
+      title: "사업 개요"
+      subsections:
+        - id: "1.1"
+          title: "사업명 및 사업자"
+        - id: "1.2"
+          title: "사업 위치"
+        - id: "1.3"
+          title: "사업 목적 및 필요성"
+        - id: "1.4"
+          title: "사업 규모"
+
+    - id: "2"
+      title: "대기질 현황"
+      subsections:
+        - id: "2.1"
+          title: "대기질 측정망 현황"
+        - id: "2.2"
+          title: "현황 측정 결과"
+          content:
+            - "측정 항목별 농도"
+            - "환경기준 대비 평가"
+            - "계절별/시간대별 변화"
+        - id: "2.3"
+          title: "기상 현황"
+          content:
+            - "풍향/풍속"
+            - "기온/습도"
+            - "강수량"
+
+    - id: "3"
+      title: "영향 예측 방법"
+      subsections:
+        - id: "3.1"
+          title: "예측 모델"
+          content:
+            - "AERMOD 모델 개요"
+            - "모델 선정 사유"
+            - "모델 적용 범위"
+        - id: "3.2"
+          title: "예측 조건"
+          content:
+            - "배출원 설정"
+            - "기상 자료"
+            - "지형 자료"
+            - "수용점 설정"
+        - id: "3.3"
+          title: "예측 대상 오염물질"
+
+    - id: "4"
+      title: "영향 예측 결과"
+      subsections:
+        - id: "4.1"
+          title: "오염물질별 예측 결과"
+          dynamic: true
+          generate_per_pollutant: true
+          content:
+            - "최대 착지농도"
+            - "최대 착지농도 발생 위치"
+            - "등농도 분포도"
+            - "환경기준 대비 평가"
+        - id: "4.2"
+          title: "정온시설별 영향 예측"
+          content:
+            - "시설별 예측 농도"
+            - "환경기준 대비 평가"
+            - "영향 정도 분석"
+        - id: "4.3"
+          title: "누적 영향 예측"
+          content:
+            - "현황 농도 + 사업 기여 농도"
+            - "환경기준 적합성 평가"
+
+    - id: "5"
+      title: "환경기준 적합성 검토"
+      subsections:
+        - id: "5.1"
+          title: "대기환경기준 개요"
+        - id: "5.2"
+          title: "오염물질별 적합성 평가"
+          dynamic: true
+          generate_per_pollutant: true
+        - id: "5.3"
+          title: "종합 평가"
+
+    - id: "6"
+      title: "영향 저감 방안"
+      subsections:
+        - id: "6.1"
+          title: "공사 중 저감 방안"
+          content:
+            - "비산먼지 저감"
+            - "장비 배출가스 저감"
+            - "운행차량 관리"
+        - id: "6.2"
+          title: "운영 중 저감 방안"
+        - id: "6.3"
+          title: "모니터링 계획"
+
+    - id: "7"
+      title: "결론"
+      subsections:
+        - id: "7.1"
+          title: "예측 결과 요약"
+        - id: "7.2"
+          title: "환경기준 적합성"
+        - id: "7.3"
+          title: "사업 시행의 적정성"
+
+    - id: "8"
+      title: "참고문헌"
+
+    - id: "부록"
+      title: "부록"
+      subsections:
+        - id: "A"
+          title: "AERMOD 입력 자료"
+        - id: "B"
+          title: "등농도 분포도"
+        - id: "C"
+          title: "정온시설 현황"
+
+# 필수 포함 요소
+required_elements:
+  pre_content:
+    - element: "표지"
+      description: "사업명, 발주처, 작성일"
+      required: true
+    - element: "목차"
+      description: "자동 생성 목차"
+      required: true
+    - element: "표 목차"
+      description: "표 번호 및 제목"
+      required: true
+    - element: "그림 목차"
+      description: "그림 번호 및 제목"
+      required: true
+    - element: "요약"
+      description: "주요 내용 요약 (1-2페이지)"
+      required: true
+
+  post_content:
+    - element: "참고문헌"
+      description: "인용된 모든 문헌"
+      required: true
+    - element: "부록"
+      description: "상세 자료"
+      required: false
+
+# 자동 생성 요소
+auto_generated_elements:
+  tables:
+    prefix: "[표]"
+    numbering: "sequential"  # 1, 2, 3...
+    examples:
+      - name: "현황 측정 결과 요약"
+        columns: ["측정지점", "PM10", "PM2.5", "NO2", "SO2"]
+      - name: "예측 조건 설정"
+        columns: ["항목", "설정값", "비고"]
+      - name: "오염물질별 최대 착지농도"
+        columns: ["오염물질", "평균시간", "최대농도", "환경기준", "적합여부"]
+      - name: "정온시설별 예측 농도"
+        columns: ["시설명", "거리(m)", "예측농도", "환경기준", "적합여부"]
+      - name: "환경기준 적합성 평가"
+        columns: ["평가항목", "예측값", "기준값", "평가결과"]
+
+  figures:
+    prefix: "[그림]"
+    numbering: "sequential"
+    examples:
+      - name: "사업 위치도"
+        type: "map"
+      - name: "수용점 배치도"
+        type: "map"
+      - name: "등농도 분포도"
+        type: "contour"
+        generate_per_pollutant: true
+      - name: "풍향-풍속 분포"
+        type: "windrose"
+
+  charts:
+    prefix: "[차트]"
+    examples:
+      - name: "현황 측정값 시계열"
+        type: "line"
+      - name: "예측값 vs 환경기준 비교"
+        type: "bar"
+      - name: "정온시설별 농도 분포"
+        type: "scatter"
+
+# 용어 정의
+glossary:
+  - term: "AERMOD"
+    definition: "AMS/EPA Regulatory Model - 미국 EPA 승인 대기확산 모델"
+  - term: "착지농도"
+    definition: "배출원에서 배출된 오염물질이 지표면에 도달한 농도"
+  - term: "정온시설"
+    definition: "학교, 병원 등 정온을 필요로 하는 시설"
+  - term: "환경기준"
+    definition: "대기환경보전법에 따른 대기환경기준"
+  - term: "PM10"
+    definition: "입자크기 10㎛ 이하의 미세먼지"
+  - term: "PM2.5"
+    definition: "입자크기 2.5㎛ 이하의 미세먼지"
+
+# 참고문헌 스타일
+citations:
+  style: "APA"
+  format: "저자(연도) 형식"
+  examples:
+    - "환경부(2022). 대기환경기준 고시."
+    - "국립환경과학원(2021). AERMOD 모델링 가이드라인."
+    - "Kim et al.(2020). 도로변 대기질 영향 연구. 한국대기환경학회지, 36(2), 123-145."

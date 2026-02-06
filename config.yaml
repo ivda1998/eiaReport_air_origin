@@ -116,6 +116,12 @@ report:
     line_spacing: 1.5
     image_width: 6.0  # 인치
 
+# 템플릿 설정
+templates:
+  enabled: true
+  dir: "templates"
+  section_by_section: true  # true = 섹션별 AI 호출, false = 단일 프롬프트
+
 # 한글 폰트 설정 (matplotlib)
 font:
   family: "Malgun Gothic"
