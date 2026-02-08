@@ -20,6 +20,7 @@ from .data_loader import (
     load_reference_papers,
 )
 from .isopleth_agent import generate_all_isopleths
+from .search import search_all_papers
 
 
 # 모듈 레벨 AI 클라이언트 (init_ai_client로 초기화)
@@ -113,12 +114,23 @@ def prepare_context_data(config):
         for item in sample_reports
     ]) if sample_reports else "샘플 보고서 없음"
 
+    # 학술 논문 검색
+    search_results = {}
+    search_config = config.config.get('search', {})
+    if search_config.get('enabled', False):
+        try:
+            search_results = search_all_papers(config)
+        except Exception as e:
+            print(f"⚠️ 학술 논문 검색 실패 (로컬 참조자료만 사용): {e}")
+            search_results = {}
+
     return {
         'aermod_data': aermod_data,
         'sample_text': sample_text,
         'facility_data': facility_data if facility_data else '',
         'measurement_data': measurement_data if measurement_data else '',
         'reference_papers': reference_papers if reference_papers else '',
+        'search_papers': search_results,
         'project_name': config.config['project']['name'],
     }
 
@@ -202,6 +214,7 @@ def analyze_legacy(context_data, isopleth_images, config):
     measurement_data = context_data['measurement_data']
     reference_papers = context_data['reference_papers']
     aermod_data = context_data['aermod_data']
+    general_search = context_data.get('search_papers', {}).get('general', '')
 
     prompt = f"""
 당신은 환경영향평가 대기질 분야 전문가입니다.
@@ -231,6 +244,8 @@ def analyze_legacy(context_data, isopleth_images, config):
 
 [참조 4: 외부 전문자료 및 선행연구]
 {reference_papers[:5000] if reference_papers else "외부 전문자료가 없습니다. 대신 일반적인 대기질 관련 학술 연구와 정부 보고서를 인용하여 작성하세요."}
+
+{f"[참조 5: 학술 논문 검색 결과 (인용하여 예측결과를 뒷받침하세요)]" + chr(10) + general_search[:5000] if general_search else ""}
 
 [AERMOD 모델링 결과]
 {aermod_data}

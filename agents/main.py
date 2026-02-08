@@ -17,8 +17,9 @@ from .aermod_agent import run_aermod
 from .isopleth_agent import generate_all_isopleths
 from .ai_generation import init_ai_client, analyze_output
 from .report_format import save_report
+from .search import search_all_papers, format_papers_for_prompt
 
-__version__ = "2.2 (에이전트 아키텍처)"
+__version__ = "2.3 (학술 검색 에이전트 추가)"
 
 
 def init_system(config_path="config.yaml"):
@@ -196,6 +197,25 @@ report:
     line_spacing: 1.5
     image_width: 6.0
 
+# 학술 논문 검색 설정
+search:
+  enabled: true
+  semantic_scholar:
+    enabled: true
+    api_key: ""
+  core:
+    enabled: true
+    api_key: ""
+  max_results_per_query: 5
+  max_results_total: 10
+  max_chars_per_paper: 500
+  total_max_chars: 8000
+  year_range: "2015-2026"
+  min_citations: 3
+  queries:
+    - "AERMOD atmospheric dispersion modeling environmental impact"
+    - "환경영향평가 대기질 모델링 예측"
+
 # 한글 폰트 설정
 font:
   family: "Malgun Gothic"
@@ -238,6 +258,7 @@ def menu_loop(config, templates):
         print("  6. 종료      - 프로그램 종료")
         print("  7. 템플릿    - 템플릿 기반 고품질 보고서 (DOCX)")
         print("  8. 템플릿TXT - 템플릿 기반 보고서 (TXT)")
+        print("  9. 논문검색  - 학술 논문 검색 테스트")
 
         command = input("\n명령을 입력하세요: ").strip()
 
@@ -277,6 +298,9 @@ def menu_loop(config, templates):
                 print("\n❌ 템플릿이 로딩되지 않았습니다. templates 폴더를 확인하세요.")
                 continue
             _cmd_analyze_txt(config, templates, use_templates=True)
+
+        elif command == "논문검색" or command == "9":
+            _cmd_search_papers(config)
 
         else:
             print("⚠️ 올바른 명령을 입력하세요.")
@@ -410,6 +434,46 @@ def _cmd_isopleth(config):
         print(f"\n❌ 입력 오류: 숫자를 입력해주세요.")
     except Exception as e:
         print(f"\n❌ 등농도곡선 생성 오류: {str(e)}")
+        traceback.print_exc()
+
+
+def _cmd_search_papers(config):
+    """학술 논문 검색 테스트 명령"""
+    try:
+        search_config = config.config.get('search', {})
+        if not search_config.get('enabled', False):
+            print("\n⚠️ 학술 논문 검색이 비활성화되어 있습니다.")
+            print("   config.yaml에서 search.enabled: true로 설정하세요.")
+            return
+
+        print("\n🔍 학술 논문 검색을 시작합니다...")
+        results = search_all_papers(config)
+
+        if not results:
+            print("\n⚠️ 검색 결과가 없습니다.")
+            return
+
+        print("\n" + "="*70)
+        print("   학술 논문 검색 결과")
+        print("="*70)
+
+        for key, text in results.items():
+            if not text:
+                continue
+            label = f"일반 검색" if key == 'general' else f"섹션 {key}"
+            print(f"\n--- [{label}] ---")
+            # 각 섹션별로 최대 1000자만 미리보기
+            if len(text) > 1000:
+                print(text[:1000])
+                print(f"  ... ({len(text):,}자 중 1000자만 표시)")
+            else:
+                print(text)
+
+        total_chars = sum(len(v) for v in results.values() if v)
+        print(f"\n✓ 검색 완료: {len(results)}개 카테고리, 총 {total_chars:,}자")
+
+    except Exception as e:
+        print(f"\n❌ 논문 검색 오류: {str(e)}")
         traceback.print_exc()
 
 

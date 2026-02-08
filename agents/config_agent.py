@@ -452,6 +452,13 @@ class TemplateManager:
             if sample_text:
                 sample_ref = f"\n[참조: 샘플 보고서 양식 (구조와 문체만 참조하고, 수치는 반드시 실제 데이터 사용)]\n{sample_text[:5000]}\n"
 
+        # 학술 논문 검색 결과 (섹션별)
+        search_ref = ""
+        search_papers = context_data.get('search_papers', {})
+        section_search = search_papers.get(section_num, '') or search_papers.get('general', '')
+        if section_search:
+            search_ref = f"\n[참조: 학술 논문 검색 결과 (인용하여 예측결과의 타당성을 뒷받침하세요)]\n{section_search}\n"
+
         prompt = f"""당신은 환경영향평가 대기질 분야 전문가입니다.
 아래 지침에 따라 환경영향평가서의 "{toc_text.split(chr(10))[0] if toc_text else section_id}" 섹션을 작성하세요.
 
@@ -472,6 +479,7 @@ class TemplateManager:
 {data_section}
 {special_rules}
 {sample_ref}
+{search_ref}
 
 [출력 형식]
 - 마크다운 형식으로 작성 (# 제목, ## 소제목, | 표 |)

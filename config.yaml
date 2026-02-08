@@ -122,6 +122,35 @@ templates:
   dir: "templates"
   section_by_section: true  # true = 섹션별 AI 호출, false = 단일 프롬프트
 
+# 학술 논문 검색 설정
+search:
+  enabled: true
+
+  # Semantic Scholar API (무료, API 키 선택사항)
+  semantic_scholar:
+    enabled: true
+    api_key: ""  # 빈 문자열이면 키 없이 사용 (분당 100회 제한)
+
+  # CORE API (API 키 필수, https://core.ac.uk 에서 발급)
+  core:
+    enabled: true
+    api_key: ""  # 빈 문자열이면 자동 비활성화
+
+  # 검색 결과 제한
+  max_results_per_query: 5   # 쿼리당 최대 결과 수
+  max_results_total: 10      # 소스 병합 후 최대 결과 수
+  max_chars_per_paper: 500   # 논문당 초록 최대 문자 수
+  total_max_chars: 8000      # 프롬프트 삽입용 전체 최대 문자 수
+
+  # 검색 필터
+  year_range: "2015-2026"
+  min_citations: 3
+
+  # 일반 검색 쿼리 (섹션별 쿼리는 paper_merger.py에 정의)
+  queries:
+    - "AERMOD atmospheric dispersion modeling environmental impact"
+    - "환경영향평가 대기질 모델링 예측"
+
 # 한글 폰트 설정 (matplotlib)
 font:
   family: "Malgun Gothic"
