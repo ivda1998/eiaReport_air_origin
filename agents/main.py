@@ -250,19 +250,15 @@ def menu_loop(config, templates):
 
     while True:
         print("\n[명령어]")
-        print("  1. 모델링    - AERMOD 시뮬레이션 실행")
-        print("  2. 분석      - 결과 분석 및 보고서 작성 (TXT, 기존방식)")
-        print("  3. 전체      - 모델링 + 분석 한번에 실행 (TXT)")
-        print("  4. DOCX      - 보고서를 DOCX 형식으로 작성 (기존방식)")
-        print("  5. 등농도선  - 등농도곡선만 생성")
-        print("  6. 종료      - 프로그램 종료")
-        print("  7. 템플릿    - 템플릿 기반 고품질 보고서 (DOCX)")
-        print("  8. 템플릿TXT - 템플릿 기반 보고서 (TXT)")
-        print("  9. 논문검색  - 학술 논문 검색 테스트")
+        print("  1. 모델링     - AERMOD 시뮬레이션 실행")
+        print("  2. 보고서     - 보고서 작성 (DOCX)")
+        print("  3. 전체실행   - 모델링 + 보고서 (DOCX)")
+        print("  4. 등농도선   - 등농도곡선 별도 생성")
+        print("  5. 종료")
 
         command = input("\n명령을 입력하세요: ").strip()
 
-        if command == "종료" or command == "6":
+        if command == "종료" or command == "5":
             print("\n👋 프로그램을 종료합니다.")
             break
 
@@ -270,40 +266,65 @@ def menu_loop(config, templates):
             result = run_aermod(config)
             print(result)
 
-        elif command == "분석" or command == "2":
-            _cmd_analyze_txt(config, templates, use_templates=False)
+        elif command == "보고서" or command == "2":
+            _cmd_report_docx(config, templates)
 
-        elif command == "전체" or command == "3":
+        elif command == "전체실행" or command == "전체" or command == "3":
             result = run_aermod(config)
             print(result)
             if "SUCCESS" in result or "WARNING" in result:
-                _cmd_analyze_txt(config, templates, use_templates=False)
+                _cmd_report_docx(config, templates)
             else:
-                print("\n❌ 모델링 실패로 분석을 진행할 수 없습니다.")
+                print("\n❌ 모델링 실패로 보고서 작성을 진행할 수 없습니다.")
 
-        elif command == "DOCX" or command == "docx" or command == "4":
-            _cmd_analyze_docx(config, templates, use_templates=False)
-
-        elif command == "등농도선" or command == "5":
+        elif command == "등농도선" or command == "4":
             _cmd_isopleth(config)
-
-        elif command == "템플릿" or command == "7":
-            if templates is None:
-                print("\n❌ 템플릿이 로딩되지 않았습니다. templates 폴더를 확인하세요.")
-                continue
-            _cmd_template_docx(config, templates)
-
-        elif command == "템플릿TXT" or command == "8":
-            if templates is None:
-                print("\n❌ 템플릿이 로딩되지 않았습니다. templates 폴더를 확인하세요.")
-                continue
-            _cmd_analyze_txt(config, templates, use_templates=True)
-
-        elif command == "논문검색" or command == "9":
-            _cmd_search_papers(config)
 
         else:
             print("⚠️ 올바른 명령을 입력하세요.")
+
+
+def _cmd_report_docx(config, templates):
+    """보고서 작성 통합 명령 (TXT 백업 + DOCX 출력)
+
+    템플릿이 로딩되어 있으면 템플릿 기반, 없으면 기존방식으로 자동 선택.
+    """
+    try:
+        if not os.path.exists(config.OUTPUT_FILE):
+            print("\n❌ AERMOD 출력 파일이 없습니다. 먼저 '모델링' 또는 '전체실행'을 실행하세요.")
+            return
+
+        use_templates = templates is not None
+        label = "템플릿 기반" if use_templates else "기존방식"
+        print(f"\n📝 {label} 보고서 작성을 시작합니다...")
+
+        result_data = analyze_output(config, templates, use_templates=use_templates)
+        if not result_data:
+            print("❌ 보고서 내용이 생성되지 않았습니다.")
+            return
+
+        report, isopleth_images = result_data
+        print("\n" + "="*70)
+        print(f"[{label} 환경영향평가서 - 대기질]")
+        print("="*70)
+        print(f"보고서 길이: {len(report):,}자")
+        if len(report) > 500:
+            print(report[:500] + "...")
+        else:
+            print(report)
+
+        # TXT 백업 저장
+        save_report(report, config, templates if use_templates else None,
+                    format='txt', isopleth_images=isopleth_images)
+        # DOCX 저장
+        result = save_report(report, config, templates if use_templates else None,
+                            format='docx', isopleth_images=isopleth_images)
+        if result:
+            print(f"✓ {label} DOCX 보고서 생성 완료")
+
+    except Exception as e:
+        print(f"\n❌ 보고서 생성 오류: {str(e)}")
+        traceback.print_exc()
 
 
 def _cmd_analyze_txt(config, templates, use_templates=False):
